@@ -6,14 +6,63 @@
 namespace StreamCompaction {
 namespace Efficient {
 
-// TODO: __global__
+#define blockSize 128
+int *temp_scan;
+int *scan_result;
 
-/**
- * Performs prefix-sum (aka scan) on idata, storing the result into odata.
- */
+__global__ void upSweep(int n, int d, int *o_data, int *i_data) {
+	int index =  (blockIdx.x * blockDim.x) + threadIdx.x;	
+	if (index <= n) {
+		if (index % (int)pow(2.0, d+1) == 0) {
+			o_data[index-1] = i_data[index - 1 - (int)pow(2.0, d)] + i_data[index - 1];
+		} 
+	}
+}
+
+__global__ void downSweep(int n, int d, int *o_data, int *i_data) {
+	int index =  (blockIdx.x * blockDim.x) + threadIdx.x;	
+	if (index <= n) {
+		if (index % (int)pow(2.0, d+1) == 0) {
+			o_data[index - 1 - (int)pow(2.0, d)] = o_data[index-1];
+			o_data[index-1] = i_data[index - 1 - (int)pow(2.0, d)] + i_data[index - 1];
+		} 
+	}
+
+}
+
 void scan(int n, int *odata, const int *idata) {
-    // TODO
-    printf("TODO\n");
+    int d = ilog2ceil(n);
+
+	cudaMalloc((void**)&scan_result, n * sizeof(int));
+	cudaMalloc((void**)&temp_scan, n * sizeof(int));
+	
+	cudaMemcpy(temp_scan, idata, n * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(scan_result, idata, n * sizeof(int), cudaMemcpyHostToDevice);
+
+	dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
+	
+	for (int i = 0; i < d; i++) {
+		upSweep<<<fullBlocksPerGrid, blockSize>>>(n, i, scan_result, temp_scan);
+		temp_scan = scan_result;
+	}
+
+	/*
+	cudaMemcpy(odata, scan_result, n * sizeof(int), cudaMemcpyDeviceToHost);
+	odata[n-1] = 0;
+
+	
+	cudaMemcpy(scan_result, odata, n * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(temp_scan, odata, n * sizeof(int), cudaMemcpyHostToDevice);
+
+	for (int i = d-1; i >= 0; i--) {
+		downSweep<<<fullBlocksPerGrid, blockSize>>>(n, i, scan_result, temp_scan);
+		temp_scan = scan_result;
+	}
+	*/
+	cudaMemcpy(odata, scan_result, n * sizeof(int), cudaMemcpyDeviceToHost);
+	cudaFree(scan_result);
+	cudaFree(temp_scan);
+
 }
 
 /**
