@@ -62,9 +62,19 @@ void scan(int n, int *odata, const int *idata) {
 	}
 
 	cudaMemcpy(odata, scan_result, total * sizeof(int), cudaMemcpyDeviceToHost);
-	cudaFree(scan_result);
-	cudaFree(temp_scan);
+	printf("odata[n-1] %d \n", odata[total-1]);
+}
 
+
+__global__ void checkNonZero(int n, int *o_data, const int *i_data) {
+	int index =  (blockIdx.x * blockDim.x) + threadIdx.x;	
+	if (index <= n) {
+		if (i_data[index] != 0) {
+			o_data[index] = 1;
+		} else {
+			o_data[index] = 0;
+		}
+	}
 }
 
 /**
@@ -77,8 +87,32 @@ void scan(int n, int *odata, const int *idata) {
  * @returns      The number of elements remaining after compaction.
  */
 int compact(int n, int *odata, const int *idata) {
-    // TODO
-    return -1;
+    
+	int d = ilog2ceil(n);
+	int total = (int) pow(2.0, d);
+
+	int *predicate_array;
+	int *hst_predicate_array;
+	int *dev_idata;
+	int *compact_array;
+
+	cudaMalloc((void**)&predicate_array, total * sizeof(int));
+	cudaMalloc((void**)&hst_predicate_array, total * sizeof(int));
+	cudaMalloc((void**)&dev_idata, total * sizeof(int));
+	cudaMalloc((void**)&compact_array, total * sizeof(int));
+
+	cudaMemcpy(dev_idata, idata, total * sizeof(int), cudaMemcpyHostToDevice);
+
+	dim3 fullBlocksPerGrid((total + blockSize - 1) / blockSize);
+
+	checkNonZero<<<fullBlocksPerGrid, blockSize>>>(total, predicate_array, dev_idata);
+	cudaMemcpy(hst_predicate_array, predicate_array, total * sizeof(int), cudaMemcpyDeviceToHost);
+	
+	scan(total, odata, hst_predicate_array);
+	int totalAfterCompaction = odata[n-1];
+	cudaMemcpy(odata, predicate_array, total * sizeof(int), cudaMemcpyDeviceToHost);
+	
+    return totalAfterCompaction;
 }
 
 }
