@@ -109,7 +109,7 @@ int compact(int n, int *odata, const int *idata) {
 	cudaMemcpy(hst_predicate_array, predicate_array, total * sizeof(int), cudaMemcpyDeviceToHost);
 	
 	scan(total, odata, hst_predicate_array);
-	int totalAfterCompaction = odata[n-1];
+	int totalAfterCompaction = odata[total-1];
 	cudaMemcpy(odata, predicate_array, total * sizeof(int), cudaMemcpyDeviceToHost);
 	
     return totalAfterCompaction;
