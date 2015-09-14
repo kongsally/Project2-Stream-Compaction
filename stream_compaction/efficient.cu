@@ -6,7 +6,7 @@
 namespace StreamCompaction {
 namespace Efficient {
 
-#define blockSize 128
+#define blockSize 1024
 int *temp_scan;
 int *scan_result;
 
@@ -66,17 +66,6 @@ void scan(int n, int *odata, const int *idata) {
 }
 
 
-__global__ void checkNonZero(int n, int *o_data, const int *i_data) {
-	int index =  (blockIdx.x * blockDim.x) + threadIdx.x;	
-	if (index <= n) {
-		if (i_data[index] != 0) {
-			o_data[index] = 1;
-		} else {
-			o_data[index] = 0;
-		}
-	}
-}
-
 /**
  * Performs stream compaction on idata, storing the result into odata.
  * All zeroes are discarded.
@@ -105,7 +94,7 @@ int compact(int n, int *odata, const int *idata) {
 
 	dim3 fullBlocksPerGrid((total + blockSize - 1) / blockSize);
 
-	checkNonZero<<<fullBlocksPerGrid, blockSize>>>(total, predicate_array, dev_idata);
+	Common::kernMapToBoolean<<<fullBlocksPerGrid, blockSize>>>(total, predicate_array, dev_idata);
 	cudaMemcpy(hst_predicate_array, predicate_array, total * sizeof(int), cudaMemcpyDeviceToHost);
 	
 	scan(total, odata, hst_predicate_array);
