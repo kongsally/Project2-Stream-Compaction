@@ -42,11 +42,17 @@ void scan(int n, int *odata, const int *idata) {
 	cudaMemcpy(scan_result, idata, n * sizeof(int), cudaMemcpyHostToDevice);
 
 	dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
+
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
 	
+	cudaEventRecord(start);
 	for (int i = 1; i <= d; i++) {
 		prefixSum<<<fullBlocksPerGrid, blockSize>>>(n, i, scan_result, temp_scan);
 		temp_scan = scan_result;
 	}
+	cudaEventRecord(stop);
 
 	cudaMemcpy(odata, scan_result, n * sizeof(int), cudaMemcpyDeviceToHost);
 
@@ -56,6 +62,10 @@ void scan(int n, int *odata, const int *idata) {
 	}
 	odata[0] = 0;
 
+	cudaEventSynchronize(stop);
+	float milliseconds = 0;
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	printf("%f milliseconds for naive \n", milliseconds);
 	
 	cleanUp();
    
