@@ -20,11 +20,13 @@ __global__ void upSweep(int n, int d, int *o_data, int *i_data) {
 }
 
 __global__ void downSweep(int n, int d, int *o_data, int *i_data) {
-	int index =  (blockIdx.x * blockDim.x) + threadIdx.x;	
+	int index =  (blockIdx.x * blockDim.x) + threadIdx.x;
+	int temp = 0;
 	if (index <= n) {
 		if (index % (int)pow(2.0, d+1) == 0) {
-			o_data[index - 1 - (int)pow(2.0, d)] = o_data[index-1];
-			o_data[index-1] = i_data[index - 1 - (int)pow(2.0, d)] + i_data[index - 1];
+			temp = i_data[index - 1 - (int)pow(2.0, d)];
+			o_data[index - 1 - (int)pow(2.0, d)] = i_data[index-1];
+			o_data[index-1] = temp + i_data[index - 1];
 		} 
 	}
 
@@ -46,11 +48,10 @@ void scan(int n, int *odata, const int *idata) {
 		temp_scan = scan_result;
 	}
 
-	/*
+	
 	cudaMemcpy(odata, scan_result, n * sizeof(int), cudaMemcpyDeviceToHost);
 	odata[n-1] = 0;
 
-	
 	cudaMemcpy(scan_result, odata, n * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(temp_scan, odata, n * sizeof(int), cudaMemcpyHostToDevice);
 
@@ -58,7 +59,7 @@ void scan(int n, int *odata, const int *idata) {
 		downSweep<<<fullBlocksPerGrid, blockSize>>>(n, i, scan_result, temp_scan);
 		temp_scan = scan_result;
 	}
-	*/
+
 	cudaMemcpy(odata, scan_result, n * sizeof(int), cudaMemcpyDeviceToHost);
 	cudaFree(scan_result);
 	cudaFree(temp_scan);
